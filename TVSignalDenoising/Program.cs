@@ -1,11 +1,17 @@
 ﻿
+using System.IO;
+
 namespace TVSignalDenoising
 {
     class Program
     {
         static void Main(string[] args)
         {
-            var signal = FileIO.ReadSignal();
+            var location = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            var path = Path.GetDirectoryName(location);
+            var p = path.Remove(path.IndexOf("bin"));
+
+            var signal = FileIO.ReadSignal($"{p}Resources\\signal.txt");
 
             double[] x = new double[signal.Length];
             for(int i=0; i<signal.Length; i++)
