@@ -8,6 +8,14 @@ namespace TVSignalDenoising
     {
         public static double[] ReadSignal(string path = "Resources/signal.txt")
         {
+            if(string.IsNullOrEmpty(path))
+            {
+                var location = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                var locName = Path.GetDirectoryName(location);
+                var p = locName.Remove(locName.IndexOf("bin"));
+                path = $"{p}Resources\\signal.txt";
+            }
+
             using (StreamReader reader = new StreamReader(path))
             {
                 var res = new List<double>();
