@@ -6,7 +6,7 @@ namespace TVSignalDenoising
 {
     public class FileIO
     {
-        public static double[] ReadSignal(string path = "Resources/signal.txt")
+        public static double[] ReadSignal(string path = "Resources/signal.txt", int maxLen = 256)
         {
             if(string.IsNullOrEmpty(path))
             {
@@ -23,9 +23,10 @@ namespace TVSignalDenoising
                 while ((line = reader.ReadLine()) != null)
                 {
                     double s = 0;
-                    if(double.TryParse(line, out s))
+                    if (double.TryParse(line, out s) && res.Count<maxLen)
                         res.Add(s);
                 }
+
                 return res.ToArray();
             }
         }

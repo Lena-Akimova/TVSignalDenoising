@@ -6,10 +6,12 @@ namespace TVSignalDenoising
 {
     public abstract class Example
     {
-        public abstract double[] BoxUp { get; set; }
-        public abstract double[] BoxLow { get; set; }
+        public double[] BoxUp { get; set; }
+        public double[] BoxLow { get; set; }
 
-        public abstract int N { get; set; }
+        public int N { get; set; }
+
+        public double Scale { get; set; }
 
         /// <summary>
         /// Субградиент в точке x

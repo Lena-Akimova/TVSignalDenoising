@@ -9,4 +9,10 @@
     <PackageReference Include="alglib.net" Version="3.18.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="disnet_d">
+      <HintPath>..\..\..\..\..\..\dislin\disnet_d.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

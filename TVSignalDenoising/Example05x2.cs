@@ -9,10 +9,6 @@ namespace TVSignalDenoising
     /// </summary>
     class Example05x2 : Example
     {
-        public override double[] BoxUp { get; set; }
-        public override double[] BoxLow { get; set; }
-        public override int N { get; set; }
-
         /// <summary>
         /// <inheritdoc/>
         /// </summary>

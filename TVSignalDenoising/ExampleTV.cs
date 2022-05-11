@@ -5,34 +5,22 @@ using System.Text;
 
 namespace TVSignalDenoising
 {
+    /// <summary>
+    /// Sum(si-xi)^2 + lambda*Sum(|xi_1 - xi|) 
+    /// </summary>
     class ExampleTV : Example
     {
-        public override double[] BoxUp
-        {
-            get
-            {
-                var d = new double[N];
-                for (int i = 0; i < N; i++)
-                    d[i] = double.PositiveInfinity;
-                return d;
-            }
-            set => BoxUp = value;
-        }
-        public override double[] BoxLow
-        {
-            get
-            {
-                var d = new double[N];
-                for (int i = 0; i < N; i++)
-                    d[i] = -double.PositiveInfinity;
-                return d;
-            }
-            set => BoxLow = value;
-        }
         public double[] NoisedSignal { get; set; }
-        public override int N { get; set; }
+        public double[] DenoisedSignal { get; set; }
+        public double[] Signal { get; set; }
         public double Lambda { get; set; }
 
+        public ExampleTV()
+        {
+            Signal = FileIO.ReadSignal("", 128);
+            NoisedSignal = NoiseSignal(Signal, 0.5, 0.05);
+            N = Signal.Length;
+        }
 
         /// <summary>
         /// Значение функции Sum(si-xi)^2 + lambda*Sum(|xi_1 - xi|) в точке 
@@ -64,20 +52,20 @@ namespace TVSignalDenoising
             {
                 if (i == 0)
                 {
-                    var modPart = x[i + 1] == x[i] ? 0 : (x[i + 1] - x[i]) / Math.Abs(x[i + 1] - x[i]);
+                    var modPart = x[i + 1] == x[i] ? 0 : x[i + 1] > x[i] ? 1 : -1; //(x[i + 1] - x[i]) / Math.Abs(x[i + 1] - x[i]);
                     sub[i] = 2 * x[i] - 2 * NoisedSignal[i] - Lambda * modPart;
                 }
 
                 else if (i == N - 1)
                 {
-                    var modPart = x[i] == x[i - 1] ? 0 : (x[i] - x[i - 1]) / Math.Abs(x[i] - x[i - 1]);
+                    var modPart = x[i] == x[i - 1] ? 0 : x[i] > x[i - 1] ? 1 : -1;// (x[i] - x[i - 1]) / Math.Abs(x[i] - x[i - 1]);
                     sub[i] = 2 * x[i] - 2 * NoisedSignal[i] + Lambda * modPart;
                 }
                 else
                 {
-                    var modPart1 = x[i + 1] == x[i] ? 0 : (x[i + 1] - x[i]) / Math.Abs(x[i + 1] - x[i]);
-                    var modPart2 = x[i] == x[i - 1] ? 0 : (x[i] - x[i - 1]) / Math.Abs(x[i] - x[i - 1]);
-                    sub[i] = 2 * x[i] - 2 * NoisedSignal[i] + Lambda * modPart1 - Lambda * modPart2;
+                    var modPart1 = x[i + 1] == x[i] ? 0 : x[i + 1] > x[i] ? 1 : -1;// (x[i + 1] - x[i]) / Math.Abs(x[i + 1] - x[i]);
+                    var modPart2 = x[i] == x[i - 1] ? 0 : x[i] > x[i - 1] ? 1 : -1;// (x[i] - x[i - 1]) / Math.Abs(x[i] - x[i - 1]);
+                    sub[i] = 2 * x[i] - 2 * NoisedSignal[i] - Lambda * modPart1 + Lambda * modPart2;
                 }
             }
 
@@ -125,5 +113,28 @@ namespace TVSignalDenoising
             Console.WriteLine($" L = {sum} ");
             return sum;
         }
+
+        public static double RMSE(double[] x, double[] y)
+        {
+            var s = x.Zip(y).Sum(xy => Math.Pow(xy.First - xy.Second, 2));
+            return Math.Sqrt(s / x.Length);
+        }
+
+        public static double[] NoiseSignal(double[] signal, double k = 0.3, double prob = 0.03)
+        {
+            var noised = new double[signal.Length];
+            Random r = new Random();
+            for (var i = 0; i < signal.Length; i++)
+            {
+                var rand = (r.NextDouble() * 2 - 1) * k;
+                if (r.NextDouble() < prob)
+                    noised[i] = signal[i] + rand * 7;
+                else
+                    noised[i] = signal[i] + rand;
+            }
+            return noised;
+        }
+
+
     }
 }
