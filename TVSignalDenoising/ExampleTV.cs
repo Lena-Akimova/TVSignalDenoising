@@ -6,7 +6,7 @@ using System.Text;
 namespace TVSignalDenoising
 {
     /// <summary>
-    /// Sum(si-xi)^2 + lambda*Sum(|xi_1 - xi|) 
+    /// 0.5*Sum(si-xi)^2 + lambda*Sum(|xi_1 - xi|) 
     /// </summary>
     class ExampleTV : Example
     {
@@ -17,19 +17,19 @@ namespace TVSignalDenoising
 
         public ExampleTV()
         {
-            Signal = FileIO.ReadSignal("", 128);
+            Signal = FileIO.ReadSignal("", 50);
             NoisedSignal = NoiseSignal(Signal, 0.5, 0.05);
             N = Signal.Length;
         }
 
         /// <summary>
-        /// Значение функции Sum(si-xi)^2 + lambda*Sum(|xi_1 - xi|) в точке 
+        /// Значение функции 0.5*Sum(si-xi)^2 + lambda*Sum(|xi_1 - xi|) в точке 
         /// </summary>
         /// <param name="x"></param>
         /// <returns></returns>
         public override double? GetValueAt(double[] x)
         {
-            var sumKvadr = NoisedSignal.Zip(x).Sum(sx => Math.Pow(sx.First - sx.Second, 2));
+            var sumKvadr = NoisedSignal.Zip(x).Sum(sx => Math.Pow(sx.First - sx.Second, 2))*0.5;
             var sumMod = 0.0;
             for (int i = 0; i < x.Length - 1; i++)
                 sumMod += Math.Abs(x[i + 1] - x[i]);
@@ -50,70 +50,56 @@ namespace TVSignalDenoising
             var sub = new double[N];
             for (int i = 0; i < N; i++)
             {
+                sub[i] = x[i] - NoisedSignal[i];
                 if (i == 0)
-                {
-                    var modPart = x[i + 1] == x[i] ? 0 : x[i + 1] > x[i] ? 1 : -1; //(x[i + 1] - x[i]) / Math.Abs(x[i + 1] - x[i]);
-                    sub[i] = 2 * x[i] - 2 * NoisedSignal[i] - Lambda * modPart;
-                }
-
+                    sub[i] +=  - Lambda * Math.Sign(x[i + 1] - x[i]);
                 else if (i == N - 1)
-                {
-                    var modPart = x[i] == x[i - 1] ? 0 : x[i] > x[i - 1] ? 1 : -1;// (x[i] - x[i - 1]) / Math.Abs(x[i] - x[i - 1]);
-                    sub[i] = 2 * x[i] - 2 * NoisedSignal[i] + Lambda * modPart;
-                }
+                    sub[i] += Lambda * Math.Sign(x[i] - x[i - 1]);
                 else
-                {
-                    var modPart1 = x[i + 1] == x[i] ? 0 : x[i + 1] > x[i] ? 1 : -1;// (x[i + 1] - x[i]) / Math.Abs(x[i + 1] - x[i]);
-                    var modPart2 = x[i] == x[i - 1] ? 0 : x[i] > x[i - 1] ? 1 : -1;// (x[i] - x[i - 1]) / Math.Abs(x[i] - x[i - 1]);
-                    sub[i] = 2 * x[i] - 2 * NoisedSignal[i] - Lambda * modPart1 + Lambda * modPart2;
-                }
+                    sub[i] += - Lambda * Math.Sign(x[i + 1] - x[i]) + Lambda * Math.Sign(x[i] - x[i - 1]);
             }
-
             return sub;
         }
 
 
         /// <summary>
         /// <inheritdoc/>
+        ///  (Sum (si^2))^(1/2)->max, x=[box],
+        ///  (Sum (si^2))->max, x=[box]
         /// </summary>
         /// <returns></returns>
         public override double FindL()
         {
-            double[,] A = new double[N, N]; //гессиан
-            double[] B = new double[N]; // вектор коэфф-в b
-            double[] scale = new double[N]; //масштаб
-
-            for (int i = 0; i < N; i++)
+            ExampleSubgr subgr = new ExampleSubgr()
             {
-                A[i, i] = -2.0;
-                scale[i] = 1; //один масштаб у всех иксов
-            }
+                Lambda = this.Lambda,
+                N = this.N,
+                NoisedSignal = this.NoisedSignal,
+                Scale = this.Scale,
+                BoxLow = this.BoxLow,
+                BoxUp=this.BoxUp
+            };
 
-            double[] x;
-            alglib.minqpstate state;
-            alglib.minqpreport rep;
-            alglib.minqpcreate(N, out state);
+            SubgradientDescentOptimizator so = new SubgradientDescentOptimizator(subgr, 100, NoisedSignal, 0.01, 0.0001);
 
-            alglib.minqpsetquadraticterm(state, A);
-            alglib.minqpsetlinearterm(state, B);
-            alglib.minqpsetscale(state, scale);
+            var res = so.Minimize();
+            var MaxS = res.Item1[res.Item3];
 
-
-            alglib.minqpsetbc(state, BoxLow, BoxUp);
-            alglib.minqpsetalgoquickqp(state, 0.0, 0.0, 0.0, 0, true);
-            alglib.minqpoptimize(state);
-            alglib.minqpresults(state, out x, out rep);
-
-            var s = GetSubGradAt(x);
             var sum = 0.0;
             for (int i = 0; i < N; i++)
-                sum += s[i] * s[i];
+                sum += MaxS[i] * MaxS[i];
             sum = Math.Sqrt(sum);
 
             Console.WriteLine($" L = {sum} ");
             return sum;
         }
 
+        /// <summary>
+        /// Среднеквадратическая ошибка
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
         public static double RMSE(double[] x, double[] y)
         {
             var s = x.Zip(y).Sum(xy => Math.Pow(xy.First - xy.Second, 2));
@@ -133,6 +119,16 @@ namespace TVSignalDenoising
                     noised[i] = signal[i] + rand;
             }
             return noised;
+        }
+
+        public static double TV(double[] signal)
+        {
+            var tv = 0.0;
+            for(int i=0; i<signal.Length-1; i++)
+            {
+                tv+=Math.Abs(signal[i + 1] - signal[i]);
+            }
+            return tv;
         }
 
 

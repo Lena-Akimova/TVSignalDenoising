@@ -30,7 +30,7 @@ namespace TVSignalDenoising
         /// Минимизация функции для <see cref="Example">примера</see>
         /// </summary>
         /// <returns></returns>
-        public double[] Minimize()
+        public (double[][], double[], int) Minimize()
         {
 
             var n = example.N;
@@ -142,9 +142,9 @@ namespace TVSignalDenoising
             }
             catch (Exception e)
             {
-                return Xk[i];
+                return (Xk, Fk, i);
             }
-            return X[k];
+            return (X, Fk, k);
         }
 
         /// <summary>

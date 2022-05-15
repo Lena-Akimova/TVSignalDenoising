@@ -6,6 +6,10 @@ namespace TVSignalDenoising
 {
     interface IOptimizator
     {
-        double[] Minimize();
+        /// <summary>
+        /// Минимизация
+        /// </summary>
+        /// <returns>Кортеж из массива точек и значений функции, итерации с ответом</returns>
+        (double[][], double[], int) Minimize();
     }
 }

@@ -32,7 +32,10 @@ namespace TVSignalDenoising
         }
 
         /// <summary>
-        /// <inheritdoc/>
+        /// <inheritdoc/>,
+        ///  -||s||->min, x=[box],
+        ///  -(Sum (si^2))^(1/2)->min, x=[box],
+        ///  -(Sum (si^2))->min, x=[box]
         /// </summary>
         /// <returns></returns>
         public override double FindL()
