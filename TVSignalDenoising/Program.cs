@@ -11,7 +11,7 @@ namespace TVSignalDenoising
     {
         static void Main(string[] args)
         {
-            Example1();
+            //Example1();
             Example2();
         }
 
@@ -27,7 +27,7 @@ namespace TVSignalDenoising
             };
 
             var repeating = 100;
-            var eps = 0.00001;
+            var eps = 0.000001;
             var teta = 0.7;// 1-1/(2+Math.Sqrt(2));
             var Fkl= new double[repeating][];
             var Fkl1= new double[repeating][];
@@ -45,6 +45,8 @@ namespace TVSignalDenoising
             for (int e = 0; e < repeating; e++)
             {
                 var x01 = GetRandomPoint(ex1.BoxLow, ex1.BoxUp, ex1.N);
+
+                Console.WriteLine($"x0: {alglib.ap.format(x01, 3)} ");
 
                 //ПМУ с отсек. плоскостями
                 LevelSetOptimizator lsEx1 = new LevelSetOptimizator(ex1, -1, x01, eps, teta, true);
@@ -64,7 +66,7 @@ namespace TVSignalDenoising
                 Console.WriteLine($"\nПМУ с отсек. плоскостями:\nОтвет: \neps = {eps} \nШагов = {res1.Item4} " +
                     $"\nargmin = {alglib.ap.format(argmin1, 3)} " +
                     $"\nminVal = {alglib.ap.format(minVal1.Value, 3)} " +
-                    $"\nЗатраченное время = {stopWatch.ElapsedMilliseconds / 1000.0} сек ");
+                    $"\nЗатраченное время = {time1[e]} сек ");
                 PrintBorder();
 
                 //ПМУ 
@@ -117,17 +119,17 @@ namespace TVSignalDenoising
             Console.WriteLine($"\nПМУ с отсек. плоскостями:\nОтвет: \neps = {eps} " +
                     $"\nСредний минимум = {min1.Sum() / repeating}" +
                     $"\nСреднее кол-во шагов = {steps1.Sum()/(double)repeating} " +
-                    $"\nСреднее затраченное время = {time1.Sum() / repeating} сек ");
+                    $"\nСреднее затраченное время = {time1.Sum() / (double)repeating} сек ");
 
             Console.WriteLine($"\nПМУ :\nОтвет: \neps = {eps} " +
                     $"\nСредний минимум = {min3.Sum()/repeating}" +
                     $"\nСреднее кол-во шагов = {steps3.Sum() / (double)repeating} " +
-                    $"\nСреднее затраченное время = {time3.Sum() / repeating} сек ");
+                    $"\nСреднее затраченное время = {time3.Sum() / (double)repeating} сек ");
 
             Console.WriteLine($"\nСубградиентный:\nОтвет: \neps = {eps} " +
                     $"\nСредний минимум = {min2.Sum() / repeating}" +
                     $"\nСреднее кол-во шагов = {steps2.Sum() / (double)repeating}  " +
-                    $"\nСреднее затраченное время = {time2.Sum()/repeating} сек ");
+                    $"\nСреднее затраченное время = {time2.Sum()/ (double)repeating} сек ");
             PrintBorder();
 
             DisplayFuncDeskending(Fkl, "Proximal Level-Set Method with cutting planes", ex1.GetValueAt(ex1.BoxLow).Value, ex1.GetValueAt(ex1.BoxUp).Value, 1);
@@ -173,6 +175,8 @@ namespace TVSignalDenoising
             for (int e = 0; e < repeating; e++) {
 
                 var x0 = ExampleTV.NoiseSignal(ex2.Signal, 0.5, 0.05);
+
+                Console.WriteLine($"Шумный сигнал: {alglib.ap.format(x0, 3)} \n ");
 
                 //ПМУ с отсек. плоскостями
                 LevelSetOptimizator lsEx2 = new LevelSetOptimizator(ex2, -1, x0, eps, teta, true);
@@ -226,8 +230,10 @@ namespace TVSignalDenoising
                 var h = 0.01;
                 SubgradientDescentOptimizator sd = new SubgradientDescentOptimizator(ex2, k, x0, h, eps);
 
+                stopWatch.Restart();
                 var res2 = sd.Minimize();
-                
+                stopWatch.Stop();
+
                 Fks[e] = res2.Item2;
                 var argmin2 = res2.Item1[res2.Item3];
                 ex2.DenoisedSignal = argmin2;
@@ -252,17 +258,17 @@ namespace TVSignalDenoising
             Console.WriteLine($"\nПМУ с отсек. плоскостями:\nОтвет: \neps = {eps} " +
                     $"\nСредний минимум = {min1.Sum() / repeating}" +
                     $"\nСреднее кол-во шагов = {steps1.Sum() / (double)repeating} " +
-                    $"\nСреднее затраченное время = {time1.Sum() / repeating} сек ");
+                    $"\nСреднее затраченное время = {time1.Sum() / (double)repeating} сек ");
 
             Console.WriteLine($"\nПМУ :\nОтвет: \neps = {eps} " +
                     $"\nСредний минимум = {min3.Sum() / repeating}" +
                     $"\nСреднее кол-во шагов = {steps3.Sum() / (double)repeating} " +
-                    $"\nСреднее затраченное время = {time3.Sum() / repeating} сек ");
+                    $"\nСреднее затраченное время = {time3.Sum() / (double)repeating} сек ");
 
             Console.WriteLine($"\nСубградиентный:\nОтвет: \neps = {eps} " +
                     $"\nСредний минимум = {min2.Sum() / repeating}" +
                     $"\nСреднее кол-во шагов = {steps2.Sum() / (double)repeating}  " +
-                    $"\nСреднее затраченное время = {time2.Sum() / repeating} сек ");
+                    $"\nСреднее затраченное время = {time2.Sum() / (double)repeating} сек ");
 
 
             DisplayFuncDeskending(Fkl, "Proximal Level-Set Method with cutting planes", 0, 100, 100);

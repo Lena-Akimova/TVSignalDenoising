@@ -70,7 +70,7 @@ namespace TVSignalDenoising
             try
             {
                 //Пока ошибка модели больше требуемой точности
-                while (B - A > eps)
+                while (B - A > eps && i<steps-1)
                 {
                     //Console.WriteLine($"k = {k}:");
                     Xk = new double[steps][];
@@ -143,6 +143,8 @@ namespace TVSignalDenoising
                         //Пересчитываем рекордное значение модели
                         Bk[i + 1] = Math.Min(Bk[i], Fk[i + 1]);
                         //Console.WriteLine($"Pекордное значение модели f{k}*: {Bk[i + 1]}\n ");
+                        if (Bk[i + 1] == Bk[i])
+                            throw new Exception();
 
                         if (Ak[i + 1] < Lk[i])
                         {
@@ -185,11 +187,11 @@ namespace TVSignalDenoising
 
 
 
-        public (double[][], double[], int,int) MinimizeWithoutCuttingPlanes()
+        public (double[][], double[], int, int) MinimizeWithoutCuttingPlanes()
         {
             var n = example.N;
             //var c = (int)-Math.Log(eps, 10);
-            var steps = 15* example.N;
+            var steps = 15 * example.N;
             var k = 0;
             var X = new double[steps][];
             var F = new double[steps];
@@ -201,71 +203,102 @@ namespace TVSignalDenoising
             A[k] = alfa;
             B[k] = example.GetValueAt(X[k]).Value; //начальное рекордное значение модели ф-ии
             F[k] = B[k];
-            try
+            while (true)
             {
-                //Пока ошибка модели больше требуемой точности
-                while (B[k] - A[k] > eps)
+                try
                 {
-                    //Console.WriteLine($"k = {k}:");
-
-                    //Уровень - между мин. и рекордным значениями
-                    L[k] = (1 - teta) * A[k] + teta * B[k];
-                    //Console.WriteLine($"L{k} = {L[k]}");
-
-                    //Касательная в последней построенной точке модели ф-ии
-                    S[k] = example.GetSubGradAt(X[k]);
-                    F[k] = example.GetValueAt(X[k]).Value;
-
-                    double[,] linCon = new double[1, n];
-                    double[] l = new double[1];
-                    for (int i = k; i <= k; i++)
+                    //Пока ошибка модели больше требуемой точности
+                    while (B[k] - A[k] > eps && k < steps-1)
                     {
-                        var sum = F[i] + S[i].Zip(X[k]).Sum(sx => -sx.First * sx.Second);
-                        for (int ii = 0; ii < n; ii++)
-                            linCon[i-k, ii] = S[i][ii];
-                        l[i-k] = L[k] - sum;
-                    }
- 
-                    //строим проекцию на множество уровней  - ищем точку, которая ближе всего к последней xk,
-                    //но значение всех касательных к xi-м в ней не больше уровня
-                    X[k + 1] = Projection(X[k], linCon, example.BoxUp, example.BoxLow, l);
+                        //Console.WriteLine($"k = {k}:");
 
-                    //Console.WriteLine($"Проекция точки {alglib.ap.format(X[k], 3)} \nна множество U{k}: \n{alglib.ap.format(X[k + 1], 3)} ");
-                    //Новая модель функции с большим на 1 кол-вом точек
+                        //Уровень - между мин. и рекордным значениями
+                        L[k] = (1 - teta) * A[k] + teta * B[k];
+                        //Console.WriteLine($"L{k} = {L[k]}");
 
-                    //4. Проводим касательную в этой новой точке
-                    S[k + 1] = example.GetSubGradAt(X[k+1]);
-                    F[k + 1] = example.GetValueAt(X[k + 1]).Value;
+                        //Касательная в последней построенной точке модели ф-ии
+                        S[k] = example.GetSubGradAt(X[k]);
+                        F[k] = example.GetValueAt(X[k]).Value;
 
-                    //Пересчитаем мин значение модели функции
-                    var au = new double[2];
-                    double[,] linKoeff = new double[2, n + 1]; //коэффициенты лин. ограничений 
-
-                    for (int ii = k; ii < k+2; ii++)
-                    {
-                        au[ii-k] = -F[ii] - S[ii].Zip(X[ii]).Sum(sx => -sx.First * sx.Second);
-                        for (int j = 0; j < n; j++)
+                        double[,] linCon = new double[1, n];
+                        double[] l = new double[1];
+                        for (int i = k; i <= k; i++)
                         {
-                            linKoeff[ii-k, j] = S[ii][j];
+                            var sum = F[i] + S[i].Zip(X[k]).Sum(sx => -sx.First * sx.Second);
+                            for (int ii = 0; ii < n; ii++)
+                                linCon[i - k, ii] = S[i][ii];
+                            l[i - k] = L[k] - sum;
                         }
-                        linKoeff[ii-k, n] = -1; //для t
+
+                        //строим проекцию на множество уровней  - ищем точку, которая ближе всего к последней xk,
+                        //но значение всех касательных к xi-м в ней не больше уровня
+                        X[k + 1] = Projection(X[k], linCon, example.BoxUp, example.BoxLow, l);
+                        if(double.IsNaN(X[k+1][0]))
+                            return (X, F, k, k + 1);
+
+                        //Console.WriteLine($"Проекция точки {alglib.ap.format(X[k], 3)} \nна множество U{k}: \n{alglib.ap.format(X[k + 1], 3)} ");
+                        //Новая модель функции с большим на 1 кол-вом точек
+
+                        //4. Проводим касательную в этой новой точке
+                        S[k + 1] = example.GetSubGradAt(X[k + 1]);
+                        F[k + 1] = example.GetValueAt(X[k + 1]).Value;
+
+                        //Пересчитаем мин значение модели функции
+                        var au = new double[2];
+                        double[,] linKoeff = new double[2, n + 1]; //коэффициенты лин. ограничений 
+
+                        for (int ii = k; ii < k + 2; ii++)
+                        {
+                            au[ii - k] = -F[ii] - S[ii].Zip(X[ii]).Sum(sx => -sx.First * sx.Second);
+                            for (int j = 0; j < n; j++)
+                            {
+                                linKoeff[ii - k, j] = S[ii][j];
+                            }
+                            linKoeff[ii - k, n] = -1; //для t
+                        }
+
+                        //Mаксимальное из минимальных значений функций касательных
+                        var minMV = MinModelValue(linKoeff, au, example.BoxUp, example.BoxLow);
+                        //Console.WriteLine($"Мин. значение модели ^f{k}*: {minMV}\n ");
+
+                        A[k + 1] = Math.Max(A[k], minMV);
+                        F[k + 1] = example.GetValueAt(X[k + 1]).Value;
+                        //Пересчитываем рекордное значение модели
+                        B[k + 1] = Math.Min(B[k], F[k + 1]);
+                        //Console.WriteLine($"Pекордное значение модели f{k}*: {B[k + 1]}\n ");
+                        k++;
                     }
+                    if (B[k] - A[k] > eps)
+                    {
+                        var X1 = new double[2 * steps][];
+                        var F1 = new double[2 * steps];
+                        var A1 = new double[2 * steps];
+                        var B1 = new double[2 * steps];
+                        var S1 = new double[2 * steps][];
+                        var L1 = new double[2 * steps];
 
-                    //Mаксимальное из минимальных значений функций касательных
-                    var minMV = MinModelValue(linKoeff, au, example.BoxUp, example.BoxLow);
-                    //Console.WriteLine($"Мин. значение модели ^f{k}*: {minMV}\n ");
+                        Array.Copy(X, X1, X.Length);
+                        Array.Copy(F, F1, F.Length);
+                        Array.Copy(A, A1, A.Length);
+                        Array.Copy(B, B1, B.Length);
+                        Array.Copy(S, S1, S.Length);
+                        Array.Copy(L, L1, L.Length);
 
-                    A[k + 1] = Math.Max(A[k], minMV);
-                    F[k + 1] = example.GetValueAt(X[k + 1]).Value;
-                    //Пересчитываем рекордное значение модели
-                    B[k + 1] = Math.Min(B[k], F[k + 1]);
-                    //Console.WriteLine($"Pекордное значение модели f{k}*: {B[k + 1]}\n ");
-                    k++;
+                        X = X1;
+                        F = F1;
+                        A = A1;
+                        B = B1;
+                        S = S1;
+                        L = L1;
+                        steps = 2 * steps;
+                    }
+                    else break;
                 }
-        }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.Message);
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                    break;
+                }
             }
             return (X, F, k, k+1);
         }
