@@ -9,7 +9,7 @@ namespace TVSignalDenoising
         /// <summary>
         /// Минимизация
         /// </summary>
-        /// <returns>Кортеж из массива точек и значений функции, итерации с ответом</returns>
-        (double[][], double[], int) Minimize();
+        /// <returns>Кортеж из массива точек и значений функции, итерации с ответом, кол-ва шагов</returns>
+        (double[][], double[], int, int) Minimize();
     }
 }

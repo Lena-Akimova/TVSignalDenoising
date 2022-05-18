@@ -15,32 +15,44 @@ namespace TVSignalDenoising
         private double[] x0; //первая точка модели функции
         private double eps; //требуемая точность
         private double teta; //коэффициент уровня
+        public bool CuttingPlanes { get; set; }
 
 
-        public LevelSetOptimizator(Example ex, double _alfa, double[] _x0, double _eps, double _teta)
+        public LevelSetOptimizator(Example ex, double _alfa, double[] _x0, double _eps, double _teta, bool _cuttingPlanes)
         {
             example = ex;
             alfa = _alfa;
             x0 = _x0;
             eps = _eps;
             teta = _teta;
+            CuttingPlanes = _cuttingPlanes;
+        }
+
+        public (double[][], double[], int, int) Minimize()
+        {
+            if (CuttingPlanes)
+                return MinimizeWithCuttingPlanes();
+            else
+                return MinimizeWithoutCuttingPlanes();
         }
 
         /// <summary>
         /// Минимизация функции для <see cref="Example">примера</see>
         /// </summary>
         /// <returns></returns>
-        public (double[][], double[], int) Minimize()
+        public (double[][], double[], int, int) MinimizeWithCuttingPlanes()
         {
 
             var n = example.N;
 
-            var steps = FindMaxStepsCount();
-            Console.WriteLine($"Число шагов ПМУ не превышает {steps}\n"); //слишком большое
+            //var steps = FindMaxStepsCount();
+            //Console.WriteLine($"Число шагов ПМУ не превышает {steps}\n"); //слишком большое
 
-            steps = 4 * example.N;
+            //var c = (int)-Math.Log(eps, 10);
+            var steps = 15 * example.N;
             var k = 0;
             var X = new double[steps][];
+            var F = new double[steps];
             var Xk = new double[steps][];
             var Fk = new double[steps];
             var Ak = new double[steps];
@@ -51,12 +63,22 @@ namespace TVSignalDenoising
             X[k] = x0;
             var A = alfa;
             var B = example.GetValueAt(X[k]).Value; //начальное рекордное значение модели ф-ии
+            F[k] = B;
+            var counter = 0;
+            //Console.WriteLine($"x0={alglib.ap.format(X[k], 3)} \nf0= {B} ");
+
             try
             {
                 //Пока ошибка модели больше требуемой точности
                 while (B - A > eps)
                 {
-                    Console.WriteLine($"k = {k}:");
+                    //Console.WriteLine($"k = {k}:");
+                    Xk = new double[steps][];
+                    Fk = new double[steps];
+                    Ak = new double[steps];
+                    Bk = new double[steps];
+                    Sk = new double[steps][];
+                    Lk = new double[steps];
 
                     i = 0;
                     Xk[i] = X[k];
@@ -65,6 +87,7 @@ namespace TVSignalDenoising
 
                     //Уровень - между мин. и рекордным значениями
                     Lk[i] = (1 - teta) * Ak[i] + teta * Bk[i];
+                    //Console.WriteLine($"L{k}{i} = {Lk[i]}");
 
                     //Касательная в последней построенной точке модели ф-ии
                     var S = example.GetSubGradAt(X[k]);
@@ -82,13 +105,14 @@ namespace TVSignalDenoising
                     //Если мин значение новой модели меньше уровня старой модели
                     while (Ak[i + 1] < Lk[i])
                     {
-                        Console.WriteLine($"i = {i}:");
+                        counter++;
+                        //Console.WriteLine($"i = {i}:");
                         //3. Задаем множество уровней U
                         //строим проекцию на него - ищем точку, которая ближе всего к последней xk,
                         //но значение касательной к xk в ней не больше уровня
-                        Xk[i + 1] = Projection(X[k], linCon, example.BoxUp, example.BoxLow, Lk[i] - sum);
+                        Xk[i + 1] = Projection(X[k], linCon, example.BoxUp, example.BoxLow, new double[] { Lk[i] - sum });
 
-                        Console.WriteLine($"Проекция точки {alglib.ap.format(X[k], 3)} \nна множество U{k},{i}: \n{alglib.ap.format(Xk[i + 1], 3)} ");
+                        //Console.WriteLine($"Проекция точки {alglib.ap.format(X[k], 3)} \nна множество U{k},{i}: \n{alglib.ap.format(Xk[i + 1], 3)} ");
                         //Новая модель функции с большим на 1 кол-вом точек
 
                         //4. Проводим касательную в этой новой точке
@@ -112,21 +136,23 @@ namespace TVSignalDenoising
 
                         //Mаксимальное из минимальных значений двух функций касательных
                         var minMV = MinModelValue(linKoeff, au, example.BoxUp, example.BoxLow);
-                        Console.WriteLine($"Мин. значение модели ^f{k}*: {minMV}\n ");
+                        //Console.WriteLine($"Мин. значение модели ^f{k}*: {minMV}\n ");
 
                         Ak[i + 1] = Math.Max(Ak[i], minMV);
                         Fk[i + 1] = example.GetValueAt(Xk[i + 1]).Value;
                         //Пересчитываем рекордное значение модели
                         Bk[i + 1] = Math.Min(Bk[i], Fk[i + 1]);
-                        Console.WriteLine($"Pекордное значение модели f{k}*: {Bk[i + 1]}\n ");
+                        //Console.WriteLine($"Pекордное значение модели f{k}*: {Bk[i + 1]}\n ");
 
                         if (Ak[i + 1] < Lk[i])
                         {
                             //опускаем уровень
                             Lk[i + 1] = (1 - teta) * A + teta * Bk[i + 1];
+                            //Console.WriteLine($"L{k}{i+1} = {Lk[i+1]}");
                             i++;
                             //проектируем точку с новым l
                         }
+                        else break;
                     }
 
 
@@ -137,14 +163,111 @@ namespace TVSignalDenoising
 
                     //текущая точка минимума выбирается из построенных 
                     X[k + 1] = Xk[MinIndex(Fk, i + 1)];
+                    F[k + 1] = example.GetValueAt(X[k + 1]).Value;
                     k++;
                 }
             }
             catch (Exception e)
             {
-                return (Xk, Fk, i);
+                Console.WriteLine(e.Message);
+                var x1 = new double[2*X.Length][];
+                Array.Copy(X, 0, x1, 0, k+1);
+                Array.Copy(Xk, 1, x1, k+1, i);
+
+                var f1 = new double[2*X.Length];
+                Array.Copy(F, 0, f1, 0, k+1);
+                Array.Copy(Fk, 1, f1, k+1, i);
+
+                return (x1, f1, k+i, counter);
             }
-            return (X, Fk, k);
+            return (X, F, k, counter);
+        }
+
+
+
+        public (double[][], double[], int,int) MinimizeWithoutCuttingPlanes()
+        {
+            var n = example.N;
+            //var c = (int)-Math.Log(eps, 10);
+            var steps = 15* example.N;
+            var k = 0;
+            var X = new double[steps][];
+            var F = new double[steps];
+            var A = new double[steps];
+            var B = new double[steps];
+            var S = new double[steps][];
+            var L = new double[steps];
+            X[k] = x0;
+            A[k] = alfa;
+            B[k] = example.GetValueAt(X[k]).Value; //начальное рекордное значение модели ф-ии
+            F[k] = B[k];
+            try
+            {
+                //Пока ошибка модели больше требуемой точности
+                while (B[k] - A[k] > eps)
+                {
+                    //Console.WriteLine($"k = {k}:");
+
+                    //Уровень - между мин. и рекордным значениями
+                    L[k] = (1 - teta) * A[k] + teta * B[k];
+                    //Console.WriteLine($"L{k} = {L[k]}");
+
+                    //Касательная в последней построенной точке модели ф-ии
+                    S[k] = example.GetSubGradAt(X[k]);
+                    F[k] = example.GetValueAt(X[k]).Value;
+
+                    double[,] linCon = new double[1, n];
+                    double[] l = new double[1];
+                    for (int i = k; i <= k; i++)
+                    {
+                        var sum = F[i] + S[i].Zip(X[k]).Sum(sx => -sx.First * sx.Second);
+                        for (int ii = 0; ii < n; ii++)
+                            linCon[i-k, ii] = S[i][ii];
+                        l[i-k] = L[k] - sum;
+                    }
+ 
+                    //строим проекцию на множество уровней  - ищем точку, которая ближе всего к последней xk,
+                    //но значение всех касательных к xi-м в ней не больше уровня
+                    X[k + 1] = Projection(X[k], linCon, example.BoxUp, example.BoxLow, l);
+
+                    //Console.WriteLine($"Проекция точки {alglib.ap.format(X[k], 3)} \nна множество U{k}: \n{alglib.ap.format(X[k + 1], 3)} ");
+                    //Новая модель функции с большим на 1 кол-вом точек
+
+                    //4. Проводим касательную в этой новой точке
+                    S[k + 1] = example.GetSubGradAt(X[k+1]);
+                    F[k + 1] = example.GetValueAt(X[k + 1]).Value;
+
+                    //Пересчитаем мин значение модели функции
+                    var au = new double[2];
+                    double[,] linKoeff = new double[2, n + 1]; //коэффициенты лин. ограничений 
+
+                    for (int ii = k; ii < k+2; ii++)
+                    {
+                        au[ii-k] = -F[ii] - S[ii].Zip(X[ii]).Sum(sx => -sx.First * sx.Second);
+                        for (int j = 0; j < n; j++)
+                        {
+                            linKoeff[ii-k, j] = S[ii][j];
+                        }
+                        linKoeff[ii-k, n] = -1; //для t
+                    }
+
+                    //Mаксимальное из минимальных значений функций касательных
+                    var minMV = MinModelValue(linKoeff, au, example.BoxUp, example.BoxLow);
+                    //Console.WriteLine($"Мин. значение модели ^f{k}*: {minMV}\n ");
+
+                    A[k + 1] = Math.Max(A[k], minMV);
+                    F[k + 1] = example.GetValueAt(X[k + 1]).Value;
+                    //Пересчитываем рекордное значение модели
+                    B[k + 1] = Math.Min(B[k], F[k + 1]);
+                    //Console.WriteLine($"Pекордное значение модели f{k}*: {B[k + 1]}\n ");
+                    k++;
+                }
+        }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+            return (X, F, k, k+1);
         }
 
         /// <summary>
@@ -180,15 +303,18 @@ namespace TVSignalDenoising
         /// <param name="x0">проектируемая точка</param>
         /// <param name="l">уровень</param>
         /// <returns></returns>
-        public double[] Projection(double[] x0, double[,] linCon,double[] boxUp, double[] boxLow, double l)
+        public double[] Projection(double[] x0, double[,] linCon,double[] boxUp, double[] boxLow, double[] l)
         {
             int n = example.N;
 
             double[,] A = new double[n, n]; //гессиан
             double[] B = new double[n]; // вектор коэфф-в b
-            double[] aUp = new double[] { l }; //ограничение лин. фнкц. сверху
-            double[] aLow = new double[] { -double.PositiveInfinity }; //снизу
+            double[] aUp = l; //ограничение лин. фнкц. сверху
+            double[] aLow = new double[l.Length]; //снизу
             double[] scale = new double[n]; //масштаб
+
+            for (int i = 0; i < l.Length; i++)
+                aLow[i] = -double.PositiveInfinity;
 
             for (int i = 0; i < n; i++)
             {
@@ -317,7 +443,7 @@ namespace TVSignalDenoising
             for(int i=0; i<n-1; i++)
                 zn += i % 2 == 0 ? (x[i] - x[i + 1]) * (x[i] - x[i + 1]) : 0;
            
-            Console.WriteLine($"Диаметр множества =  {zn} ");
+           // Console.WriteLine($"Диаметр множества =  {zn} ");
             return Math.Sqrt(zn);
         }
 

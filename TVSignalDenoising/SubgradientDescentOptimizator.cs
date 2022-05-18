@@ -29,9 +29,9 @@ namespace TVSignalDenoising
             k = _k;
         }
 
-        public (double[][], double[], int) Minimize()
+        public (double[][], double[], int, int) Minimize()
         {
-            Console.WriteLine($"\nСубградиентный спуск");
+            //Console.WriteLine($"\nСубградиентный спуск");
             var Xk = new double[k+1][];
             var Fk = new double[k+1];
             var Sk = new double[k+1][];
@@ -39,27 +39,48 @@ namespace TVSignalDenoising
             Xk[i] = x0;
             Fk[i] = example.GetValueAt(Xk[i]).Value;
             var delta = eps + 1;
-            try
+            while (true)
             {
-                while (delta > eps && i < k)
+                try
                 {
-                    Sk[i] = example.GetSubGradAt(Xk[i]);
-                    //var SkNorm = Math.Sqrt(Sk[i].Sum(s => s * s));
-                    var step = h / Math.Sqrt(i + 1);
-                    //Console.WriteLine($"Шаг: {step}");
-                    double[] toProj = Xk[i].Zip(Sk[i]).Select(xs => xs.First - step * xs.Second).ToArray();
-                    Xk[i + 1] = Projection(toProj, example.BoxUp, example.BoxLow);
-                    //Console.WriteLine($"X[{i + 1}] : {alglib.ap.format(Xk[i + 1], 3)}");
-                    Fk[i + 1] = example.GetValueAt(Xk[i + 1]).Value;
-                    //Console.WriteLine($"F[{i + 1}] : {Fk[i + 1]}\n ");
-                    delta = Fk[i] - Fk[i + 1];
-                    i++;
+                    while (delta > eps && i < k)
+                    {
+                        Sk[i] = example.GetSubGradAt(Xk[i]);
+                        //var SkNorm = Math.Sqrt(Sk[i].Sum(s => s * s));
+                        var step = h / Math.Sqrt(i + 1);
+                        //Console.WriteLine($"Шаг: {step}");
+                        double[] toProj = Xk[i].Zip(Sk[i]).Select(xs => xs.First - step * xs.Second).ToArray();
+                        Xk[i + 1] = Projection(toProj, example.BoxUp, example.BoxLow);
+                        //Console.WriteLine($"X[{i + 1}] : {alglib.ap.format(Xk[i + 1], 3)}");
+                        Fk[i + 1] = example.GetValueAt(Xk[i + 1]).Value;
+                        //Console.WriteLine($"F[{i + 1}] : {Fk[i + 1]}\n ");
+                        delta = Fk[i] - Fk[i + 1];
+                        i++;
+                    }
+                    if (delta > eps)
+                    {
+                        var Xk1 = new double[2 * k + 2][];
+                        var Fk1 = new double[2 * k + 2];
+                        var Sk1 = new double[2 * k + 2][];
+                        Array.Copy(Xk, Xk1, Xk.Length);
+                        Array.Copy(Fk, Fk1, Fk.Length);
+                        Array.Copy(Sk, Sk1, Sk.Length);
+                        Xk = Xk1;
+                        Fk = Fk1;
+                        Sk = Sk1;
+                        k=2*k;
+                    }
+                    else break;
                 }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                    break;
+                }
+                
             }
-            catch (Exception ex)
-            {
-            }
-            return (Xk, Fk, i);
+
+            return (Xk, Fk, i,i+1);
         }
 
 
