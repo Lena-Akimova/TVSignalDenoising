@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace TVSignalDenoising
 {
@@ -17,7 +15,7 @@ namespace TVSignalDenoising
         private double eps;
 
         /// <param name="ex">функция</param>
-        /// <param name="_k">кол-во итераций</param>
+        /// <param name="_k">количество итераций</param>
         /// <param name="_x0">начальная точка</param>
         /// <param name="_h">начальный шаг</param>
         public SubgradientDescentOptimizator(Example ex, int _k, double[] _x0, double _h, double _eps)
@@ -31,7 +29,6 @@ namespace TVSignalDenoising
 
         public (double[][], double[], int, int) Minimize()
         {
-            //Console.WriteLine($"\nСубградиентный спуск");
             var Xk = new double[k+1][];
             var Fk = new double[k+1];
             var Sk = new double[k+1][];
@@ -43,17 +40,13 @@ namespace TVSignalDenoising
             {
                 try
                 {
-                    while (delta > eps && i < k)
+                    while (Math.Abs(delta )> eps && i < k)
                     {
                         Sk[i] = example.GetSubGradAt(Xk[i]);
-                        //var SkNorm = Math.Sqrt(Sk[i].Sum(s => s * s));
                         var step = h / Math.Sqrt(i + 1);
-                        //Console.WriteLine($"Шаг: {step}");
                         double[] toProj = Xk[i].Zip(Sk[i]).Select(xs => xs.First - step * xs.Second).ToArray();
                         Xk[i + 1] = Projection(toProj, example.BoxUp, example.BoxLow);
-                        //Console.WriteLine($"X[{i + 1}] : {alglib.ap.format(Xk[i + 1], 3)}");
                         Fk[i + 1] = example.GetValueAt(Xk[i + 1]).Value;
-                        //Console.WriteLine($"F[{i + 1}] : {Fk[i + 1]}\n ");
                         delta = Fk[i] - Fk[i + 1];
                         i++;
                     }

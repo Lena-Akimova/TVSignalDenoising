@@ -1,11 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Text;
 
 namespace TVSignalDenoising
 {
     /// <summary>
-    ///0.5x^2 + 5 -> min, 
+    ///0.5(3*x1^2 + 10*x2^2) -> min, 
     /// </summary>
-    class Example05x2 : Example
+    class Example05x1x2 : Example
     {
         /// <summary>
         /// <inheritdoc/>
@@ -13,8 +15,8 @@ namespace TVSignalDenoising
         public override double[] GetSubGradAt(double[] x)
         {
             var s = new double[x.Length];
-            for (int i = 0; i < s.Length; i++)
-                s[i] = x[i];
+            s[0] = 3 * x[0];
+            s[1] = 10 * x[1];
             return s;
         }
 
@@ -23,9 +25,9 @@ namespace TVSignalDenoising
         /// </summary>
         public override double? GetValueAt(double[] x)
         {
-            var fromDomain = x[0] <= BoxUp[0] && x[0] >= BoxLow[0];
+            var fromDomain = true;
             return fromDomain
-                ? 0.5 * x[0] * x[0] + 5 
+                ? 0.5*(3 * x[0] * x[0] + 10 * x[1] * x[1])
                 : new double?();
         }
 

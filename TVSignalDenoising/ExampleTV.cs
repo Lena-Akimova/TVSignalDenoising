@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace TVSignalDenoising
 {
@@ -18,7 +16,6 @@ namespace TVSignalDenoising
         public ExampleTV()
         {
             Signal = FileIO.ReadSignal("", 50);
-            NoisedSignal = NoiseSignal(Signal, 0.5, 0.05);
             N = Signal.Length;
         }
 
@@ -106,17 +103,27 @@ namespace TVSignalDenoising
             return Math.Sqrt(s / x.Length);
         }
 
-        public static double[] NoiseSignal(double[] signal, double k = 0.3, double prob = 0.03)
+        /// <summary>
+        /// Зашумление аддитивным белым гаусовским шумом
+        /// </summary>
+        /// <param name="signal">Исходный сигнал</param>
+        /// <param name="snr">Отношение сигнал/шум</param>
+        /// <returns></returns>
+        public static double[] NoiseSignal(double[] signal, double SNR)
         {
             var noised = new double[signal.Length];
-            Random r = new Random();
+            var Psignal = signal.Average();
+            var Pnoise = Psignal / SNR;
+            var m = 0;
+            var d = Math.Sqrt(Pnoise);
+
+            Random r1 = new Random();
+            Random r2 = new Random();
+
             for (var i = 0; i < signal.Length; i++)
             {
-                var rand = (r.NextDouble() * 2 - 1) * k;
-                if (r.NextDouble() < prob)
-                    noised[i] = signal[i] + rand * 7;
-                else
-                    noised[i] = signal[i] + rand;
+                var z = Math.Sqrt(-2 * Math.Log(r1.NextDouble())) * Math.Cos(2 * Math.PI * r2.NextDouble());
+                noised[i] = signal[i] + z * d + m;
             }
             return noised;
         }
@@ -126,11 +133,9 @@ namespace TVSignalDenoising
             var tv = 0.0;
             for(int i=0; i<signal.Length-1; i++)
             {
-                tv+=Math.Abs(signal[i + 1] - signal[i]);
+                tv += Math.Abs(signal[i + 1] - signal[i]);
             }
             return tv;
         }
-
-
     }
 }
